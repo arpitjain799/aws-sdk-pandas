@@ -1,7 +1,5 @@
-import os
 import random
-from typing import Any, Dict, Optional
-from unittest.mock import patch
+from typing import Any, Dict, Optional, Union
 
 import boto3
 import modin.pandas as pd
@@ -82,10 +80,12 @@ def test_dynamodb_read(params: Dict[str, Any], dynamodb_table: str, request: pyt
     ],
 )
 @pytest.mark.parametrize("num_blocks", [2, 4, 8, None])
+@pytest.mark.parametrize("use_threads", [2, 4, True])
 @pytest.mark.parametrize("executor", ["pool", "actor", "function"])
 def test_dynamodb_write(
     params: Dict[str, Any],
     num_blocks: int,
+    use_threads: Union[bool, int],
     executor: str,
     dynamodb_table: str,
     request: pytest.FixtureRequest,
@@ -95,7 +95,7 @@ def test_dynamodb_write(
 
     with ExecutionTimer(request) as timer:
         wr.config.executor = executor
-        wr.dynamodb.put_df(df=big_modin_df, table_name=dynamodb_table)
+        wr.dynamodb.put_df(df=big_modin_df, table_name=dynamodb_table, use_threads=use_threads)
 
     assert timer.elapsed_time < benchmark_time
 
