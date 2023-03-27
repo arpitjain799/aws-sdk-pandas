@@ -59,12 +59,12 @@ class _RayMultiprocessingPoolExecutor(_BaseExecutor):
     def map(self, func: Callable[..., MapOutputType], _: Optional["BaseClient"], *args: Any) -> List[MapOutputType]:
         """Map func and return ray futures."""
         _logger.debug("Ray map: %s", func)
-        futures = []
 
         # Discard boto3 client
-        for arg in zip(itertools.repeat(None), *args):
-            futures.append(self._exec.apply_async(func, arg))
-        return [f.get() for f in futures]
+        iterables = (itertools.repeat(None), *args)
+        func_python = engine.dispatch_func(func, "python")
+
+        return [self._exec.apply_async(func_python, arg) for arg in zip(*iterables)]
 
 
 def _get_ray_executor(use_threads: Union[bool, int], **kwargs: Any) -> _BaseExecutor:  # pylint: disable=unused-argument

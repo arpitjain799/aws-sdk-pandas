@@ -9,6 +9,7 @@ from awswrangler._distributed import EngineEnum, engine
 
 if engine.get() == EngineEnum.RAY or TYPE_CHECKING:
     import ray
+    from ray.util.multiprocessing.pool import AsyncResult
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -99,7 +100,16 @@ def ray_remote(**options: Any) -> Callable[..., Any]:
     return remote_decorator
 
 
-def ray_get(futures: Union["ray.ObjectRef[Any]", List["ray.ObjectRef[Any]"]]) -> Any:
+def _async_result_get(futures: Union["AsyncResult", List["AsyncResult"]]) -> Any:
+    if isinstance(futures, list):
+        return [f.get() for f in futures]
+
+    return futures.get()
+
+
+def ray_get(
+    futures: Union["ray.ObjectRef[Any]", "AsyncResult", List["ray.ObjectRef[Any]"], List["AsyncResult"]]
+) -> Any:
     """
     Run ray.get on futures if distributed.
 
@@ -113,7 +123,10 @@ def ray_get(futures: Union["ray.ObjectRef[Any]", List["ray.ObjectRef[Any]"]]) ->
     List[Any]
     """
     if engine.get() == EngineEnum.RAY:
-        return ray.get(futures)  # type: ignore[attr-defined]
+        try:
+            return ray.get(futures)  # type: ignore[attr-defined]
+        except TypeError:
+            return _async_result_get(futures)
     return futures
 
 
