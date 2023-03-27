@@ -1,5 +1,7 @@
+import os
 import random
 from typing import Any, Dict, Optional
+from unittest.mock import patch
 
 import boto3
 import modin.pandas as pd
@@ -80,9 +82,11 @@ def test_dynamodb_read(params: Dict[str, Any], dynamodb_table: str, request: pyt
     ],
 )
 @pytest.mark.parametrize("num_blocks", [2, 4, 8, None])
+@pytest.mark.parametrize("executor", ["pool", "actor", "function"])
 def test_dynamodb_write(
     params: Dict[str, Any],
     num_blocks: int,
+    executor: str,
     dynamodb_table: str,
     request: pytest.FixtureRequest,
 ) -> None:
@@ -90,6 +94,7 @@ def test_dynamodb_write(
     big_modin_df = create_big_modin_df(25_000, num_blocks)
 
     with ExecutionTimer(request) as timer:
+        wr.config.executor = executor
         wr.dynamodb.put_df(df=big_modin_df, table_name=dynamodb_table)
 
     assert timer.elapsed_time < benchmark_time

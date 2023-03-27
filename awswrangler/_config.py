@@ -72,6 +72,7 @@ _CONFIG_ARGS: Dict[str, _ConfigArg] = {
     "object_store_memory": _ConfigArg(dtype=int, nullable=True),
     "cpu_count": _ConfigArg(dtype=int, nullable=True),
     "gpu_count": _ConfigArg(dtype=int, nullable=True),
+    "executor": _ConfigArg(dtype=str, nullable=True, loaded=True),
 }
 
 
@@ -615,6 +616,15 @@ class _Config:  # pylint: disable=too-many-instance-attributes,too-many-public-m
     @gpu_count.setter
     def gpu_count(self, value: int) -> None:
         self._set_config_value(key="gpu_count", value=value)
+
+    @property
+    def executor(self) -> Optional[str]:
+        """Property executor."""
+        return cast(Optional[str], self["executor"])
+
+    @executor.setter
+    def executor(self, value: Optional[str]) -> None:
+        self._set_config_value(key="executor", value=value)
 
 
 def _insert_str(text: str, token: str, insert: str) -> str:
