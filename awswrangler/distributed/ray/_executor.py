@@ -10,6 +10,7 @@ from ray.util.multiprocessing import Pool
 
 from awswrangler import config, engine
 from awswrangler._executor import _BaseExecutor
+from awswrangler.distributed.ray import ray_get
 
 if TYPE_CHECKING:
     from botocore.client import BaseClient
@@ -62,13 +63,17 @@ class _RayMultiprocessingPoolExecutor(_BaseExecutor):
 
         # Discard boto3 client
         iterables = (itertools.repeat(None), *args)
-        func_python = engine.dispatch_func(func, "python")
 
-        return [self._exec.apply_async(func_python, arg) for arg in zip(*iterables)]
+        def wrapper(arg):
+            return ray_get(func(arg))
+
+        return [self._exec.apply_async(wrapper, arg) for arg in zip(*iterables)]
 
 
 def _get_ray_executor(use_threads: Union[bool, int], **kwargs: Any) -> _BaseExecutor:  # pylint: disable=unused-argument
+    # We want the _RayMaxConcurrencyExecutor only to be used when the `parallelism` parameter is specified
     parallelism: Optional[int] = kwargs.get("ray_parallelism")
+
     if config.executor == "pool":
         return _RayMultiprocessingPoolExecutor(parallelism) if parallelism else _RayExecutor()
     elif config.executor == "actor":
