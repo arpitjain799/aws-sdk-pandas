@@ -347,7 +347,7 @@ def test_csv_additional_kwargs(path, kms_key_id, s3_additional_kwargs, use_threa
         assert desc.get("ServerSideEncryption") == "AES256"
 
 
-@pytest.mark.parametrize("line_terminator", ["\n", "\r", "\n\r"])
+@pytest.mark.parametrize("line_terminator", ["\n", "\r", "\r\n"])
 def test_csv_line_terminator(path, line_terminator):
     file_path = f"{path}0.csv"
     df = pd.DataFrame(data={"reading": ["col1", "col2"], "timestamp": [1601379427618, 1601379427625], "value": [1, 2]})
