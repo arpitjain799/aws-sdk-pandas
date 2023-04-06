@@ -493,3 +493,12 @@ def test_exceptions(path):
 
     with pytest.raises(wr.exceptions.InvalidArgumentCombination):
         wr.s3.to_csv(df=df, dataset=True)
+
+
+@pytest.mark.parametrize("dtype_backend,dtype", [("numpy_nullable", "Int64"), ("pyarrow", "int64[pyarrow]")])
+def test_s3_csv_dtype_backend(path, dtype_backend, dtype):
+    df = pd.DataFrame({"id": [1, 2, 3]}, dtype=dtype)
+    path0 = f"{path}test_csv0.csv"
+    wr.s3.to_csv(df=df, path=path0, index=False)
+    df1 = wr.s3.read_csv(path=path0, dtype_backend=dtype_backend)
+    assert df.equals(df1)
