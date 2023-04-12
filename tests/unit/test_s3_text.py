@@ -495,10 +495,23 @@ def test_exceptions(path):
         wr.s3.to_csv(df=df, dataset=True)
 
 
+@pytest.mark.parametrize("dataset", [False, True])
 @pytest.mark.parametrize("dtype_backend,dtype", [("numpy_nullable", "Int64"), ("pyarrow", "int64[pyarrow]")])
-def test_s3_csv_dtype_backend(path, dtype_backend, dtype):
+def test_s3_csv_dtype_backend(path, dtype_backend, dtype, dataset, glue_database, glue_table):
     df = pd.DataFrame({"id": [1, 2, 3]}, dtype=dtype)
     path0 = f"{path}test_csv0.csv"
-    wr.s3.to_csv(df=df, path=path0, index=False)
-    df1 = wr.s3.read_csv(path=path0, dtype_backend=dtype_backend)
+    wr.s3.to_csv(
+        df=df,
+        path=path0,
+        index=False,
+        dataset=dataset,
+        database=glue_database if dataset else None,
+        table=glue_table if dataset else None,
+        header=True,
+    )
+    df1 = wr.s3.read_csv(
+        path=path0,
+        dataset=dataset,
+        dtype_backend=dtype_backend,
+    )
     assert df.equals(df1)
