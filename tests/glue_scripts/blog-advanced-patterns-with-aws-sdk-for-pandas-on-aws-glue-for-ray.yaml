@@ -1,0 +1,261 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Advanced patterns with AWS SDK for pandas on AWS Glue for Ray"
+
+Resources:
+  GlueRayScriptBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join
+        - "-"
+        - - "glue-ray-blog-script"
+          - !Ref "AWS::AccountId"
+          - !Ref "AWS::Region"
+
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      KeySchema:
+        - AttributeName: review_id
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: review_id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: True
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+
+  TimestreamDatabase:
+    Type: AWS::Timestream::Database
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+
+  TimestreamTable:
+    Type: AWS::Timestream::Table
+    DependsOn: TimestreamDatabase
+    Properties:
+        DatabaseName: !Ref TimestreamDatabase
+        RetentionProperties:
+            MemoryStoreRetentionPeriodInHours: "24"
+            MagneticStoreRetentionPeriodInDays: "1"
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+
+  LambdaTriggerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: !Join
+                - ""
+                - - lambda.
+                  - !Ref "AWS::URLSuffix"
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Join
+          - ""
+          - - "arn:"
+            - !Ref "AWS::Partition"
+            - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - arn:aws:s3:::aws-data-wrangler-public-artifacts/*
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource:
+                  - !Join
+                    - ""
+                    - - !GetAtt "GlueRayScriptBucket.Arn"
+                      - /*
+                  - !GetAtt "GlueRayScriptBucket.Arn"
+
+  LambdaTrigger:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.9
+      Timeout: 120
+      MemorySize: 128
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaTriggerRole.Arn
+      Environment:
+        Variables:
+          PUBLIC_BUCKET: aws-data-wrangler-public-artifacts
+          PUBLIC_KEY: cloudformation/blog-advanced-patterns-with-aws-sdk-for-pandas-on-aws-glue-for-ray.py
+          SCRIPT_BUCKET: !Ref GlueRayScriptBucket
+      Code:
+        ZipFile: |
+          import os
+          import json
+
+          import boto3
+          from botocore.exceptions import ClientError
+          from urllib.request import Request, urlopen
+
+          public_bucket = os.getenv("PUBLIC_BUCKET")
+          public_key = os.getenv("PUBLIC_KEY")
+          script_bucket = os.getenv("SCRIPT_BUCKET")
+
+          s3 = boto3.resource('s3')
+
+          def send_response(e, c, rs, rd):
+              r = json.dumps({
+                  "Status": rs,
+                  "Reason": "CloudWatch Log Stream: " + c.log_stream_name,
+                  "PhysicalResourceId": e['LogicalResourceId'],
+                  "StackId": e['StackId'],
+                  "RequestId": e['RequestId'],
+                  "LogicalResourceId": e['LogicalResourceId'],
+                  "Data": rd
+              })
+              d = str.encode(r)
+              h = {
+                  'content-type': '',
+                  'content-length': str(len(d))
+              }
+              req = Request(e['ResponseURL'], data=d, method='PUT', headers=h)
+              r = urlopen(req)
+
+          def lambda_handler(event, context):
+              request_type = event['RequestType']
+              try:
+                  if request_type == 'Create':
+                      copy_source = {
+                          'Bucket': public_bucket,
+                          'Key': public_key,
+                      }
+                      bucket = s3.Bucket(script_bucket)
+                      bucket.copy(copy_source, 'glue_script.py')
+                      send_response(event, context, "SUCCESS", {
+                                    "Message": "Created"})
+                  else:
+                      send_response(event, context, "SUCCESS", {
+                                    "Message": "Function Not Applicable"})
+              except Exception as e:
+                  send_response(
+                      event,
+                      context,
+                      "FAILED",
+                      {
+                          "Message": "Exception"
+                      }
+                  )
+                  raise e
+
+  CustomLambdaTrigger:
+    Type: Custom::LambdaTrigger
+    Properties:
+      ServiceToken: !GetAtt LambdaTrigger.Arn
+
+  GlueServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: !Join
+                - ""
+                - - glue.
+                  - !Ref "AWS::URLSuffix"
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - !Join
+          - ""
+          - - "arn:"
+            - !Ref "AWS::Partition"
+            - :iam::aws:policy/service-role/AWSGlueServiceRole
+        - !Join
+          - ""
+          - - "arn:"
+            - !Ref "AWS::Partition"
+            - :iam::aws:policy/CloudWatchFullAccess
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - timestream:Describe*
+                  - timestream:List*
+                Resource:
+                  - "*"
+              - Effect: Allow
+                Action:
+                  - timestream:Select
+                  - timestream:WriteRecords
+                Resource:
+                  - !GetAtt "TimestreamTable.Arn"
+              - Effect: Allow
+                Action:
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:DescribeTable
+                  - dynamodb:GetItem
+                  - dynamodb:List*
+                  - dynamodb:PartiQL*
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !GetAtt "DynamoDBTable.Arn"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - "*"
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - !Join
+                    - ""
+                    - - !GetAtt "GlueRayScriptBucket.Arn"
+                      - /*
+                  - !GetAtt "GlueRayScriptBucket.Arn"
+                  - arn:aws:s3:::amazon-reviews-pds/*
+                  - arn:aws:s3:::aws-data-wrangler-public-artifacts/*
+
+  GlueRayJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Command:
+        Name: "glueray"
+        PythonVersion: "3.9"
+        ScriptLocation: !Sub "s3://${GlueRayScriptBucket}/glue_script.py"
+      DefaultArguments:
+        "--auto-scaling-ray-min-workers": "5"
+        "--pip-install": "awswrangler[modin]"
+        "--dynamodb-table": !Ref DynamoDBTable
+        "--timestream-database": !Ref TimestreamDatabase
+        "--timestream-table": !GetAtt "TimestreamTable.Name"
+      GlueVersion: "4.0"
+      Name: AdvancedGlueRayJob
+      Role: !Ref GlueServiceRole
+      WorkerType: "Z.2X"
+      NumberOfWorkers: 5
+
+Outputs:
+  GlueJob:
+    Description: Name of the Glue job.
+    Value: !Ref "GlueRayJob"
