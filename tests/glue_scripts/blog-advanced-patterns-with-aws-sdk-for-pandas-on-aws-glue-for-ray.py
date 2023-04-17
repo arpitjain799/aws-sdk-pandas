@@ -9,30 +9,31 @@ dynamodb_table_name = os.environ["dynamodb-table"]
 timestream_database_name = os.environ["timestream-database"]
 timestream_table_name = os.environ["timestream-table"]
 
-# Filter for 5 stars review with S3 Select
+# Filter for 5-star reviews with S3 Select within a partition
 df_select = wr.s3.select_query(
     sql="SELECT * FROM s3object s where s.\"star_rating\" >= 5",
     path="s3://amazon-reviews-pds/parquet/product_category=Mobile_Electronics/",
     input_serialization="Parquet",
     input_serialization_params={},
+    scan_range_chunk_size=1024*1024*16,
 )
-# Filter for unique review_id
+# Filter for unique review_id in Modin data frame
 df_select = df_select.drop_duplicates(subset=["review_id"])
 
-# Write Modin Frame to DynamoDB
+# Write Modin data frame to DynamoDB
 wr.dynamodb.put_df(
     df=df_select,
     table_name=dynamodb_table_name,
     use_threads=4,
 )
 
-# Read data back from DDB
+# Read data back from DynamoDB to Modin
 df_dynamodb = wr.dynamodb.read_items(
     table_name=dynamodb_table_name,
     allow_full_scan=True,
 )
 
-# Read test timestream data from S3
+# Read test Timestream data from S3
 df_timestream = wr.s3.read_csv(
     path=["s3://aws-data-wrangler-public-artifacts/sample-data/timestream/sample.csv"],
     names=[
