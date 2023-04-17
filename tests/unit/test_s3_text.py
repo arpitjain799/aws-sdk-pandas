@@ -6,7 +6,7 @@ import pytest
 import awswrangler as wr
 import awswrangler.pandas as pd
 
-from .._utils import is_ray_modin
+from .._utils import is_pandas_2_x, is_ray_modin, get_df_dtype_backend
 
 logging.getLogger("awswrangler").setLevel(logging.DEBUG)
 
@@ -27,9 +27,7 @@ pytestmark = pytest.mark.distributed
 def test_csv_encoding(path, encoding, strings, wrong_encoding, exception, line_terminator, chunksize, use_threads):
     file_path = f"{path}0.csv"
     df = pd.DataFrame({"c0": [1, 2, 3], "c1": strings})
-    wr.s3.to_csv(
-        df, file_path, index=False, encoding=encoding, lineterminator=line_terminator, use_threads=use_threads
-    )
+    wr.s3.to_csv(df, file_path, index=False, encoding=encoding, lineterminator=line_terminator, use_threads=use_threads)
     df2 = wr.s3.read_csv(
         file_path, encoding=encoding, lineterminator=line_terminator, use_threads=use_threads, chunksize=chunksize
     )
@@ -495,10 +493,11 @@ def test_exceptions(path):
         wr.s3.to_csv(df=df, dataset=True)
 
 
+@pytest.mark.skipif(condition=not is_pandas_2_x, reason="not pandas 2.x")
 @pytest.mark.parametrize("dataset", [False, True])
-@pytest.mark.parametrize("dtype_backend,dtype", [("numpy_nullable", "Int64"), ("pyarrow", "int64[pyarrow]")])
-def test_s3_csv_dtype_backend(path, dtype_backend, dtype, dataset, glue_database, glue_table):
-    df = pd.DataFrame({"id": [1, 2, 3]}, dtype=dtype)
+@pytest.mark.parametrize("dtype_backend", ["numpy_nullable", "pyarrow"])
+def test_s3_csv_dtype_backend(path, dtype_backend, dataset, glue_database, glue_table):
+    df = get_df_dtype_backend(dtype_backend=dtype_backend)
     path0 = f"{path}test_csv0.csv"
     wr.s3.to_csv(
         df=df,

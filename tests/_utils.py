@@ -4,6 +4,7 @@ import re
 import time
 from datetime import date, datetime
 from decimal import Decimal
+from packaging import version
 from timeit import default_timer as timer
 from types import TracebackType
 from typing import Any, Dict, Iterator, List, Optional, Type, Union
@@ -19,6 +20,7 @@ from awswrangler._distributed import EngineEnum, MemoryFormatEnum
 from awswrangler._utils import try_it
 
 is_ray_modin = wr.engine.get() == EngineEnum.RAY and wr.memory_format.get() == MemoryFormatEnum.MODIN
+is_pandas_2_x = False
 
 if is_ray_modin:
     import modin.pandas as pd
@@ -26,6 +28,9 @@ if is_ray_modin:
     from modin.pandas import Series as ModinSeries
 else:
     import pandas as pd
+
+    if version.parse(pd.__version__) >= version.parse("2.0.0"):
+        is_pandas_2_x = True
 
 
 CFN_VALID_STATUS = ["CREATE_COMPLETE", "ROLLBACK_COMPLETE", "UPDATE_COMPLETE", "UPDATE_ROLLBACK_COMPLETE"]
@@ -513,3 +518,24 @@ def pandas_equals(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
     """
     df1, df2 = to_pandas(df1), to_pandas(df2)
     return df1.equals(df2)
+
+
+def get_df_dtype_backend(dtype_backend: Optional[str] = None) -> pd.DataFrame:
+    df = pd.DataFrame(
+        {
+            "int64_nullable": [1, None, 3],
+            "float_nullable": [0.0, None, 2.2],
+            "bool_nullable": [True, None, False],
+        }
+    )
+    if not dtype_backend or dtype_backend == "numpy_nullable":
+        df["int64_nullable"] = df["int64_nullable"].astype("Int64")
+        df["float_nullable"] = df["float_nullable"].astype("Float64")
+        df["bool_nullable"] = df["bool_nullable"].astype("boolean")
+    elif dtype_backend == "pyarrow":
+        df["int64_nullable"] = df["int64_nullable"].astype("int64[pyarrow]")
+        df["float_nullable"] = df["float_nullable"].astype("double[pyarrow]")
+        df["bool_nullable"] = df["bool_nullable"].astype("bool[pyarrow]")
+    else:
+        raise ValueError(f"Unknown dtype_backend: {dtype_backend}")
+    return df
