@@ -8,7 +8,7 @@ import pytest
 import awswrangler as wr
 import awswrangler.pandas as pd
 
-from .._utils import ensure_data_types_csv, get_df_csv, is_ray_modin
+from .._utils import ensure_data_types_csv, get_df_csv, is_ray_modin, get_df_dtype_backend
 
 logging.getLogger("awswrangler").setLevel(logging.DEBUG)
 
@@ -509,3 +509,19 @@ def test_opencsv_serde(path, glue_table, glue_database, use_threads, ctas_approa
     )
     df = df.applymap(lambda x: x.replace('"', "")).convert_dtypes()
     assert df.equals(df2.sort_values(by=list(df2)).reset_index(drop=True))
+
+
+# @pytest.mark.parametrize("ctas_approach", [True, False])
+@pytest.mark.parametrize("dtype_backend", ["numpy_nullable", "pyarrow"])
+def test_athena_csv_dtype_backend(path, glue_table, glue_database, dtype_backend):
+    df = get_df_dtype_backend(dtype_backend=dtype_backend)
+    wr.s3.to_csv(
+        df=df,
+        path=path,
+        dataset=True,
+        database=glue_database,
+        table=glue_table,
+        index=False,
+    )
+    df2 = wr.athena.read_sql_table(table=glue_table, database=glue_database)
+    assert df.equals(df2)

@@ -46,6 +46,7 @@ _CONFIG_ARGS: Dict[str, _ConfigArg] = {
     "workgroup": _ConfigArg(dtype=str, nullable=False, enforced=True),
     "chunksize": _ConfigArg(dtype=int, nullable=False, enforced=True),
     "suppress_warnings": _ConfigArg(dtype=bool, nullable=False, default=False, loaded=True),
+    "dtype_backend": _ConfigArg(dtype=str, nullable=True),
     # Endpoints URLs
     "s3_endpoint_url": _ConfigArg(dtype=str, nullable=True, enforced=True, loaded=True),
     "athena_endpoint_url": _ConfigArg(dtype=str, nullable=True, enforced=True, loaded=True),
@@ -390,6 +391,15 @@ class _Config:  # pylint: disable=too-many-instance-attributes,too-many-public-m
     @suppress_warnings.setter
     def suppress_warnings(self, value: bool) -> None:
         self._set_config_value(key="suppress_warnings", value=value)
+
+    @property
+    def dtype_backend(self) -> Optional[str]:
+        """Property dtype_backend."""
+        return cast(Optional[str], self["dtype_backend"])
+
+    @dtype_backend.setter
+    def dtype_backend(self, value: Optional[str]) -> None:
+        self._set_config_value(key="dtype_backend", value=value)
 
     @property
     def s3_endpoint_url(self) -> Optional[str]:

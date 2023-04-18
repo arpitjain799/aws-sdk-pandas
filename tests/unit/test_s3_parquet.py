@@ -16,7 +16,15 @@ import awswrangler as wr
 import awswrangler.pandas as pd
 from awswrangler._distributed import MemoryFormatEnum
 
-from .._utils import ensure_data_types, get_df_list, is_ray_modin, pandas_equals, to_pandas
+from .._utils import (
+    ensure_data_types,
+    get_df_list,
+    is_ray_modin,
+    pandas_equals,
+    to_pandas,
+    get_df_dtype_backend,
+    is_pandas_2_x,
+)
 
 logging.getLogger("awswrangler").setLevel(logging.DEBUG)
 
@@ -761,3 +769,28 @@ def test_read_parquet_schema_validation_with_index_column(path) -> None:
         validate_schema=True,
     )
     assert df0.shape == df1.shape
+
+
+@pytest.mark.skipif(condition=not is_pandas_2_x, reason="not pandas 2.x")
+@pytest.mark.parametrize("dataset", [False, True])
+@pytest.mark.parametrize("dtype_backend", ["numpy_nullable", "pyarrow"])
+def test_s3_parquet_dtype_backend(path, dtype_backend, dataset, glue_database, glue_table):
+    df = get_df_dtype_backend(dtype_backend=dtype_backend)
+    path0 = f"{path}test_parquet0.parquet"
+    wr.s3.to_parquet(
+        df=df,
+        path=path0,
+        dataset=dataset,
+        database=glue_database if dataset else None,
+        table=glue_table if dataset else None,
+    )
+    df1 = wr.s3.read_parquet(
+        path=path0,
+        dataset=dataset,
+        pyarrow_additional_kwargs={
+            "types_mapper": pd.ArrowDtype,
+        }
+        if dtype_backend == "pyarrow"
+        else None,
+    )
+    assert df.equals(df1)

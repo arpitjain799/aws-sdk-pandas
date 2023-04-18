@@ -523,19 +523,36 @@ def pandas_equals(df1: pd.DataFrame, df2: pd.DataFrame) -> bool:
 def get_df_dtype_backend(dtype_backend: Optional[str] = None) -> pd.DataFrame:
     df = pd.DataFrame(
         {
+            # "int8_nullable": [1, None, 3],
+            # "int16_nullable": [1, None, 3],
+            # "int32_nullable": [1, None, 3],
             "int64_nullable": [1, None, 3],
             "float_nullable": [0.0, None, 2.2],
             "bool_nullable": [True, None, False],
+            "string_nullable": ["Washington", None, "Seattle"],
+            # "date_nullable": [dt("2020-01-01"), None, dt("2020-01-02")],
+            # "timestamp_nullable": [ts("2020-01-01 00:00:00.0"), None, ts("2020-01-02 00:00:01.0")],
         }
     )
     if not dtype_backend or dtype_backend == "numpy_nullable":
+        # df["int8_nullable"] = df["int8_nullable"].astype("Int8")
+        # df["int16_nullable"] = df["int16_nullable"].astype("Int16")
+        # df["int32_nullable"] = df["int32_nullable"].astype("Int32")
         df["int64_nullable"] = df["int64_nullable"].astype("Int64")
         df["float_nullable"] = df["float_nullable"].astype("Float64")
         df["bool_nullable"] = df["bool_nullable"].astype("boolean")
+        # df["date_nullable"] = df["date_nullable"].astype("string[python]")
+        df["string_nullable"] = df["string_nullable"].astype("string[python]")
     elif dtype_backend == "pyarrow":
+        # df["int8_nullable"] = df["int8_nullable"].astype("int8[pyarrow]")
+        # df["int16_nullable"] = df["int16_nullable"].astype("int16[pyarrow]")
+        # df["int32_nullable"] = df["int32_nullable"].astype("int32[pyarrow]")
         df["int64_nullable"] = df["int64_nullable"].astype("int64[pyarrow]")
         df["float_nullable"] = df["float_nullable"].astype("double[pyarrow]")
         df["bool_nullable"] = df["bool_nullable"].astype("bool[pyarrow]")
+        # df["date_nullable"] = df["date_nullable"].astype("string[pyarrow]")
+        df["string_nullable"] = df["string_nullable"].astype("string[pyarrow]")
+        # df["timestamp_nullable"] = df["timestamp_nullable"].astype("date64[ms][pyarrow]")
     else:
         raise ValueError(f"Unknown dtype_backend: {dtype_backend}")
     return df
