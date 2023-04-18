@@ -787,10 +787,6 @@ def test_s3_parquet_dtype_backend(path, dtype_backend, dataset, glue_database, g
     df1 = wr.s3.read_parquet(
         path=path0,
         dataset=dataset,
-        pyarrow_additional_kwargs={
-            "types_mapper": pd.ArrowDtype,
-        }
-        if dtype_backend == "pyarrow"
-        else None,
+        dtype_backend=dtype_backend,
     )
     assert df.equals(df1)

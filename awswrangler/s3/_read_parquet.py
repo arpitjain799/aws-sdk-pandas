@@ -369,6 +369,7 @@ def read_parquet(
     boto3_session: Optional[boto3.Session] = ...,
     s3_additional_kwargs: Optional[Dict[str, Any]] = ...,
     pyarrow_additional_kwargs: Optional[Dict[str, Any]] = ...,
+    dtype_backend: Optional[str] = ...,
 ) -> pd.DataFrame:
     ...
 
@@ -395,6 +396,7 @@ def read_parquet(
     boto3_session: Optional[boto3.Session] = ...,
     s3_additional_kwargs: Optional[Dict[str, Any]] = ...,
     pyarrow_additional_kwargs: Optional[Dict[str, Any]] = ...,
+    dtype_backend: Optional[str] = ...,
 ) -> Iterator[pd.DataFrame]:
     ...
 
@@ -421,6 +423,7 @@ def read_parquet(
     boto3_session: Optional[boto3.Session] = ...,
     s3_additional_kwargs: Optional[Dict[str, Any]] = ...,
     pyarrow_additional_kwargs: Optional[Dict[str, Any]] = ...,
+    dtype_backend: Optional[str] = ...,
 ) -> Union[pd.DataFrame, Iterator[pd.DataFrame]]:
     ...
 
@@ -447,6 +450,7 @@ def read_parquet(
     boto3_session: Optional[boto3.Session] = ...,
     s3_additional_kwargs: Optional[Dict[str, Any]] = ...,
     pyarrow_additional_kwargs: Optional[Dict[str, Any]] = ...,
+    dtype_backend: Optional[str] = ...,
 ) -> Iterator[pd.DataFrame]:
     ...
 
@@ -474,6 +478,7 @@ def read_parquet(
     boto3_session: Optional[boto3.Session] = None,
     s3_additional_kwargs: Optional[Dict[str, Any]] = None,
     pyarrow_additional_kwargs: Optional[Dict[str, Any]] = None,
+    dtype_backend: Optional[str] = None,
 ) -> Union[pd.DataFrame, Iterator[pd.DataFrame]]:
     """Read Parquet file(s) from an S3 prefix or list of S3 objects paths.
 
@@ -614,6 +619,9 @@ def read_parquet(
     """
     ray_args = ray_args if ray_args else {}
     bulk_read = ray_args.get("bulk_read", False)
+    pyarrow_additional_kwargs = pyarrow_additional_kwargs if pyarrow_additional_kwargs else {}
+    if dtype_backend == "pyarrow":
+        pyarrow_additional_kwargs["types_mapper"] = pd.ArrowDtype
 
     if bulk_read and validate_schema:
         exceptions.InvalidArgumentCombination("Cannot validate schema when bulk reading data files.")

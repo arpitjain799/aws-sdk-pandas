@@ -511,9 +511,9 @@ def test_opencsv_serde(path, glue_table, glue_database, use_threads, ctas_approa
     assert df.equals(df2.sort_values(by=list(df2)).reset_index(drop=True))
 
 
-# @pytest.mark.parametrize("ctas_approach", [True, False])
 @pytest.mark.parametrize("dtype_backend", ["numpy_nullable", "pyarrow"])
-def test_athena_csv_dtype_backend(path, glue_table, glue_database, dtype_backend):
+@pytest.mark.parametrize("ctas_approach,unload_approach", [(False, False), (True, False), (False, True)])
+def test_athena_csv_dtype_backend(path, glue_table, glue_database, dtype_backend, ctas_approach, unload_approach):
     df = get_df_dtype_backend(dtype_backend=dtype_backend)
     wr.s3.to_csv(
         df=df,
@@ -523,5 +523,11 @@ def test_athena_csv_dtype_backend(path, glue_table, glue_database, dtype_backend
         table=glue_table,
         index=False,
     )
-    df2 = wr.athena.read_sql_table(table=glue_table, database=glue_database)
+    df2 = wr.athena.read_sql_table(
+        table=glue_table,
+        database=glue_database,
+        dtype_backend=dtype_backend,
+        ctas_approach=ctas_approach,
+        unload_approach=unload_approach,
+    )
     assert df.equals(df2)

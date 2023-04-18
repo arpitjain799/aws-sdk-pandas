@@ -691,7 +691,9 @@ def athena_types_from_pyarrow_schema(
     return columns_types, partitions_types
 
 
-def cast_pandas_with_athena_types(df: pd.DataFrame, dtype: Dict[str, str]) -> pd.DataFrame:
+def cast_pandas_with_athena_types(
+    df: pd.DataFrame, dtype: Dict[str, str], dtype_backend: Optional[str] = None
+) -> pd.DataFrame:
     """Cast columns in a Pandas DataFrame."""
     mutability_ensured: bool = False
     for col, athena_type in dtype.items():
@@ -701,7 +703,7 @@ def cast_pandas_with_athena_types(df: pd.DataFrame, dtype: Dict[str, str]) -> pd
             and (athena_type.startswith("struct") is False)
             and (athena_type.startswith("map") is False)
         ):
-            desired_type: str = athena2pandas(dtype=athena_type)
+            desired_type: str = athena2pandas(dtype=athena_type, dtype_backend=dtype_backend)
             current_type: str = _normalize_pandas_dtype_name(dtype=str(df[col].dtypes))
             if desired_type != current_type:  # Needs conversion
                 _logger.debug("current_type: %s -> desired_type: %s", current_type, desired_type)
