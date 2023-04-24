@@ -47,18 +47,6 @@ def _add_table_partitions(
     return table
 
 
-def ensure_df_is_mutable(df: pd.DataFrame) -> pd.DataFrame:
-    """Ensure that all columns has the writeable flag True."""
-    raise ValueError("I don't work!!!")
-    for column in df.columns.to_list():
-        if hasattr(df[column].values, "flags") is True:
-            if df[column].values.flags.writeable is False:
-                s: pd.Series = df[column]
-                df[column] = None
-                df[column] = s
-    return df
-
-
 def _apply_timezone(df: pd.DataFrame, metadata: Dict[str, Any]) -> pd.DataFrame:
     for c in metadata["columns"]:
         if "field_name" in c and c["field_name"] is not None:
