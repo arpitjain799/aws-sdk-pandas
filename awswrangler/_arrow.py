@@ -90,7 +90,6 @@ def _table_to_df(
 
     df = table.to_pandas(**kwargs)
 
-    df = ensure_df_is_mutable(df=df)
     if metadata:
         _logger.debug("metadata: %s", metadata)
         df = _apply_timezone(df=df, metadata=metadata)
