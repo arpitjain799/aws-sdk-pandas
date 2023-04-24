@@ -49,6 +49,7 @@ def _add_table_partitions(
 
 def ensure_df_is_mutable(df: pd.DataFrame) -> pd.DataFrame:
     """Ensure that all columns has the writeable flag True."""
+    raise ValueError("I don't work!!!")
     for column in df.columns.to_list():
         if hasattr(df[column].values, "flags") is True:
             if df[column].values.flags.writeable is False:
